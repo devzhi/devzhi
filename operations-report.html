@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>运维日报生成器</title>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #fff;
+            margin-bottom: 30px;
+            font-size: 2rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card-title {
+            font-size: 1.4rem;
+            color: #333;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title::before {
+            content: '';
+            width: 5px;
+            height: 25px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 3px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+
+        label .required {
+            color: #e74c3c;
+            margin-left: 3px;
+        }
+
+        input, textarea, select {
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        }
+
+        input:invalid:not(:placeholder-shown),
+        textarea:invalid:not(:placeholder-shown) {
+            border-color: #e74c3c;
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 14px 32px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e, #38ef7d);
+            color: #fff;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(17, 153, 142, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(231, 76, 60, 0.4);
+        }
+
+        /* Report Preview Styles */
+        .report-container {
+            display: none;
+            background: #fff;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        }
+
+        .report-container.visible {
+            display: block;
+        }
+
+        .report-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .report-header h2 {
+            font-size: 1.8rem;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .report-header .date {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        .report-section {
+            margin-bottom: 30px;
+        }
+
+        .report-section h3 {
+            font-size: 1.3rem;
+            color: #333;
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            border-radius: 8px;
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+
+        .report-table th,
+        .report-table td {
+            border: 1px solid #ddd;
+            padding: 12px 15px;
+            text-align: left;
+        }
+
+        .report-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+            white-space: nowrap;
+            width: 25%;
+        }
+
+        .report-table td {
+            color: #555;
+        }
+
+        .report-table tr:nth-child(even) {
+            background: #fafafa;
+        }
+
+        .report-remarks {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px 20px;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .report-remarks h4 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .report-remarks p {
+            color: #555;
+            line-height: 1.8;
+            white-space: pre-wrap;
+        }
+
+        .report-footer {
+            text-align: center;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #999;
+            font-size: 0.9rem;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: #fff;
+            padding: 15px 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        /* Print Styles */
+        @media print {
+            body {
+                background: #fff;
+                padding: 0;
+            }
+
+            .card, .btn-group {
+                display: none !important;
+            }
+
+            .report-container {
+                display: block !important;
+                box-shadow: none;
+                padding: 0;
+            }
+
+            .report-section h3 {
+                background: #667eea !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .report-table th {
+                background: #f8f9fa !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+
+        /* Responsive Styles */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+                margin-bottom: 20px;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .card-title {
+                font-size: 1.2rem;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .report-table th,
+            .report-table td {
+                padding: 8px 10px;
+                font-size: 0.9rem;
+            }
+
+            .report-table th {
+                width: 35%;
+            }
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .loading-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #fff;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 运维日报生成器</h1>
+
+        <!-- Form 1: Prediction Data Report -->
+        <div class="card">
+            <h2 class="card-title">表单一：预测数据上报情况</h2>
+            <form id="form1" class="form-grid">
+                <div class="form-group">
+                    <label for="date1">日期 <span class="required">*</span></label>
+                    <input type="date" id="date1" required>
+                </div>
+                <div class="form-group">
+                    <label for="station1">场站名称 <span class="required">*</span></label>
+                    <input type="text" id="station1" placeholder="请输入场站名称" required>
+                </div>
+                <div class="form-group">
+                    <label for="manager1">运维负责人 <span class="required">*</span></label>
+                    <input type="text" id="manager1" placeholder="请输入运维负责人姓名" required>
+                </div>
+                <div class="form-group">
+                    <label for="ultraShortRate">超短期上报率 <span class="required">*</span></label>
+                    <input type="text" id="ultraShortRate" placeholder="如：98.5%" required>
+                </div>
+                <div class="form-group">
+                    <label for="shortRate">短期上报率 <span class="required">*</span></label>
+                    <input type="text" id="shortRate" placeholder="如：99.2%" required>
+                </div>
+                <div class="form-group">
+                    <label for="qualifyRate1">合格率 <span class="required">*</span></label>
+                    <input type="text" id="qualifyRate1" placeholder="如：97.8%" required>
+                </div>
+                <div class="form-group full-width">
+                    <label for="remarks1">原因、解决过程、结果</label>
+                    <textarea id="remarks1" placeholder="请输入原因、解决过程及结果说明..."></textarea>
+                </div>
+            </form>
+        </div>
+
+        <!-- Form 2: Data Quality Report -->
+        <div class="card">
+            <h2 class="card-title">表单二：数据质量情况</h2>
+            <form id="form2" class="form-grid">
+                <div class="form-group">
+                    <label for="date2">日期 <span class="required">*</span></label>
+                    <input type="date" id="date2" required>
+                </div>
+                <div class="form-group">
+                    <label for="station2">场站名称 <span class="required">*</span></label>
+                    <input type="text" id="station2" placeholder="请输入场站名称" required>
+                </div>
+                <div class="form-group">
+                    <label for="manager2">运维负责人 <span class="required">*</span></label>
+                    <input type="text" id="manager2" placeholder="请输入运维负责人姓名" required>
+                </div>
+                <div class="form-group">
+                    <label for="curveMissing">曲线缺失 <span class="required">*</span></label>
+                    <input type="text" id="curveMissing" placeholder="如：无 或 具体描述" required>
+                </div>
+                <div class="form-group">
+                    <label for="dataMissing">部分时间段数据缺失 <span class="required">*</span></label>
+                    <input type="text" id="dataMissing" placeholder="如：无 或 具体描述" required>
+                </div>
+                <div class="form-group">
+                    <label for="noScan">未扫码 <span class="required">*</span></label>
+                    <input type="text" id="noScan" placeholder="如：无 或 具体描述" required>
+                </div>
+                <div class="form-group">
+                    <label for="dailyAvailability">日可用率上传 <span class="required">*</span></label>
+                    <input type="text" id="dailyAvailability" placeholder="如：已上传 或 99.5%" required>
+                </div>
+                <div class="form-group">
+                    <label for="qualifyRate2">合格率 <span class="required">*</span></label>
+                    <input type="text" id="qualifyRate2" placeholder="如：98.2%" required>
+                </div>
+                <div class="form-group full-width">
+                    <label for="remarks2">原因、解决过程、结果</label>
+                    <textarea id="remarks2" placeholder="请输入原因、解决过程及结果说明..."></textarea>
+                </div>
+            </form>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="card">
+            <div class="btn-group">
+                <button type="button" class="btn btn-primary" onclick="generateReport()">
+                    📋 生成报表
+                </button>
+                <button type="button" class="btn btn-success" onclick="captureScreenshot()">
+                    📸 截图保存
+                </button>
+                <button type="button" class="btn btn-danger" onclick="clearForms()">
+                    🗑️ 清空表单
+                </button>
+            </div>
+        </div>
+
+        <!-- Report Preview -->
+        <div id="reportContainer" class="report-container">
+            <div class="report-header">
+                <h2>运维日报</h2>
+                <p class="date" id="reportDate"></p>
+            </div>
+
+            <div class="report-section">
+                <h3>一、预测数据上报情况</h3>
+                <table class="report-table">
+                    <tr>
+                        <th>日期</th>
+                        <td id="rDate1"></td>
+                        <th>场站名称</th>
+                        <td id="rStation1"></td>
+                    </tr>
+                    <tr>
+                        <th>运维负责人</th>
+                        <td id="rManager1"></td>
+                        <th>超短期上报率</th>
+                        <td id="rUltraShortRate"></td>
+                    </tr>
+                    <tr>
+                        <th>短期上报率</th>
+                        <td id="rShortRate"></td>
+                        <th>合格率</th>
+                        <td id="rQualifyRate1"></td>
+                    </tr>
+                </table>
+                <div class="report-remarks" id="rRemarks1Container" style="display: none;">
+                    <h4>原因、解决过程、结果</h4>
+                    <p id="rRemarks1"></p>
+                </div>
+            </div>
+
+            <div class="report-section">
+                <h3>二、数据质量情况</h3>
+                <table class="report-table">
+                    <tr>
+                        <th>日期</th>
+                        <td id="rDate2"></td>
+                        <th>场站名称</th>
+                        <td id="rStation2"></td>
+                    </tr>
+                    <tr>
+                        <th>运维负责人</th>
+                        <td id="rManager2"></td>
+                        <th>曲线缺失</th>
+                        <td id="rCurveMissing"></td>
+                    </tr>
+                    <tr>
+                        <th>部分时间段数据缺失</th>
+                        <td id="rDataMissing"></td>
+                        <th>未扫码</th>
+                        <td id="rNoScan"></td>
+                    </tr>
+                    <tr>
+                        <th>日可用率上传</th>
+                        <td id="rDailyAvailability"></td>
+                        <th>合格率</th>
+                        <td id="rQualifyRate2"></td>
+                    </tr>
+                </table>
+                <div class="report-remarks" id="rRemarks2Container" style="display: none;">
+                    <h4>原因、解决过程、结果</h4>
+                    <p id="rRemarks2"></p>
+                </div>
+            </div>
+
+            <div class="report-footer">
+                <p>本报表由运维日报生成器自动生成</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeDates();
+            loadFromStorage();
+            setupAutoSave();
+        });
+
+        // Initialize dates to today
+        function initializeDates() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('date1').value = today;
+            document.getElementById('date2').value = today;
+        }
+
+        // Show toast notification
+        function showToast(message, duration = 3000) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, duration);
+        }
+
+        // Show/hide loading overlay
+        function setLoading(show) {
+            const overlay = document.getElementById('loadingOverlay');
+            if (show) {
+                overlay.classList.add('show');
+            } else {
+                overlay.classList.remove('show');
+            }
+        }
+
+        // Get form data
+        function getFormData() {
+            return {
+                form1: {
+                    date: document.getElementById('date1').value,
+                    station: document.getElementById('station1').value,
+                    manager: document.getElementById('manager1').value,
+                    ultraShortRate: document.getElementById('ultraShortRate').value,
+                    shortRate: document.getElementById('shortRate').value,
+                    qualifyRate: document.getElementById('qualifyRate1').value,
+                    remarks: document.getElementById('remarks1').value
+                },
+                form2: {
+                    date: document.getElementById('date2').value,
+                    station: document.getElementById('station2').value,
+                    manager: document.getElementById('manager2').value,
+                    curveMissing: document.getElementById('curveMissing').value,
+                    dataMissing: document.getElementById('dataMissing').value,
+                    noScan: document.getElementById('noScan').value,
+                    dailyAvailability: document.getElementById('dailyAvailability').value,
+                    qualifyRate: document.getElementById('qualifyRate2').value,
+                    remarks: document.getElementById('remarks2').value
+                }
+            };
+        }
+
+        // Set form data
+        function setFormData(data) {
+            if (data.form1) {
+                if (data.form1.date) document.getElementById('date1').value = data.form1.date;
+                if (data.form1.station) document.getElementById('station1').value = data.form1.station;
+                if (data.form1.manager) document.getElementById('manager1').value = data.form1.manager;
+                if (data.form1.ultraShortRate) document.getElementById('ultraShortRate').value = data.form1.ultraShortRate;
+                if (data.form1.shortRate) document.getElementById('shortRate').value = data.form1.shortRate;
+                if (data.form1.qualifyRate) document.getElementById('qualifyRate1').value = data.form1.qualifyRate;
+                if (data.form1.remarks) document.getElementById('remarks1').value = data.form1.remarks;
+            }
+            if (data.form2) {
+                if (data.form2.date) document.getElementById('date2').value = data.form2.date;
+                if (data.form2.station) document.getElementById('station2').value = data.form2.station;
+                if (data.form2.manager) document.getElementById('manager2').value = data.form2.manager;
+                if (data.form2.curveMissing) document.getElementById('curveMissing').value = data.form2.curveMissing;
+                if (data.form2.dataMissing) document.getElementById('dataMissing').value = data.form2.dataMissing;
+                if (data.form2.noScan) document.getElementById('noScan').value = data.form2.noScan;
+                if (data.form2.dailyAvailability) document.getElementById('dailyAvailability').value = data.form2.dailyAvailability;
+                if (data.form2.qualifyRate) document.getElementById('qualifyRate2').value = data.form2.qualifyRate;
+                if (data.form2.remarks) document.getElementById('remarks2').value = data.form2.remarks;
+            }
+        }
+
+        // Save to localStorage
+        function saveToStorage() {
+            try {
+                const data = getFormData();
+                localStorage.setItem('operationsReport', JSON.stringify(data));
+            } catch (e) {
+                console.warn('Failed to save to localStorage:', e);
+            }
+        }
+
+        // Load from localStorage
+        function loadFromStorage() {
+            try {
+                const saved = localStorage.getItem('operationsReport');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    setFormData(data);
+                    showToast('已恢复上次填写的数据');
+                }
+            } catch (e) {
+                console.warn('Failed to load from localStorage:', e);
+            }
+        }
+
+        // Setup auto-save on input change
+        function setupAutoSave() {
+            const inputs = document.querySelectorAll('input, textarea');
+            inputs.forEach(input => {
+                input.addEventListener('change', saveToStorage);
+                input.addEventListener('blur', saveToStorage);
+            });
+        }
+
+        // Validate forms
+        function validateForms() {
+            const form1 = document.getElementById('form1');
+            const form2 = document.getElementById('form2');
+            
+            if (!form1.checkValidity()) {
+                form1.reportValidity();
+                return false;
+            }
+            if (!form2.checkValidity()) {
+                form2.reportValidity();
+                return false;
+            }
+            return true;
+        }
+
+        // Format date for display
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('zh-CN', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+
+        // Generate report
+        function generateReport() {
+            if (!validateForms()) {
+                showToast('请填写所有必填字段');
+                return;
+            }
+
+            const data = getFormData();
+            
+            // Set report header date
+            document.getElementById('reportDate').textContent = formatDate(data.form1.date);
+
+            // Set form 1 data
+            document.getElementById('rDate1').textContent = formatDate(data.form1.date);
+            document.getElementById('rStation1').textContent = data.form1.station;
+            document.getElementById('rManager1').textContent = data.form1.manager;
+            document.getElementById('rUltraShortRate').textContent = data.form1.ultraShortRate;
+            document.getElementById('rShortRate').textContent = data.form1.shortRate;
+            document.getElementById('rQualifyRate1').textContent = data.form1.qualifyRate;
+            
+            const remarks1Container = document.getElementById('rRemarks1Container');
+            if (data.form1.remarks.trim()) {
+                document.getElementById('rRemarks1').textContent = data.form1.remarks;
+                remarks1Container.style.display = 'block';
+            } else {
+                remarks1Container.style.display = 'none';
+            }
+
+            // Set form 2 data
+            document.getElementById('rDate2').textContent = formatDate(data.form2.date);
+            document.getElementById('rStation2').textContent = data.form2.station;
+            document.getElementById('rManager2').textContent = data.form2.manager;
+            document.getElementById('rCurveMissing').textContent = data.form2.curveMissing;
+            document.getElementById('rDataMissing').textContent = data.form2.dataMissing;
+            document.getElementById('rNoScan').textContent = data.form2.noScan;
+            document.getElementById('rDailyAvailability').textContent = data.form2.dailyAvailability;
+            document.getElementById('rQualifyRate2').textContent = data.form2.qualifyRate;
+            
+            const remarks2Container = document.getElementById('rRemarks2Container');
+            if (data.form2.remarks.trim()) {
+                document.getElementById('rRemarks2').textContent = data.form2.remarks;
+                remarks2Container.style.display = 'block';
+            } else {
+                remarks2Container.style.display = 'none';
+            }
+
+            // Show report container
+            const reportContainer = document.getElementById('reportContainer');
+            reportContainer.classList.add('visible');
+            
+            // Scroll to report
+            reportContainer.scrollIntoView({ behavior: 'smooth' });
+            
+            showToast('报表生成成功！');
+            saveToStorage();
+        }
+
+        // Capture screenshot
+        async function captureScreenshot() {
+            const reportContainer = document.getElementById('reportContainer');
+            
+            if (!reportContainer.classList.contains('visible')) {
+                showToast('请先生成报表');
+                return;
+            }
+
+            setLoading(true);
+
+            try {
+                const canvas = await html2canvas(reportContainer, {
+                    backgroundColor: '#ffffff',
+                    scale: 2,
+                    useCORS: true,
+                    logging: false
+                });
+
+                // Create download link
+                const link = document.createElement('a');
+                const data = getFormData();
+                const fileName = `运维日报_${data.form1.station}_${data.form1.date}.png`;
+                
+                link.download = fileName;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+
+                showToast('截图已保存！');
+            } catch (error) {
+                console.error('Screenshot failed:', error);
+                showToast('截图失败，请重试');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // Clear forms
+        function clearForms() {
+            if (!confirm('确定要清空所有表单数据吗？')) {
+                return;
+            }
+
+            document.getElementById('form1').reset();
+            document.getElementById('form2').reset();
+            initializeDates();
+            
+            document.getElementById('reportContainer').classList.remove('visible');
+            
+            // Clear localStorage
+            try {
+                localStorage.removeItem('operationsReport');
+            } catch (e) {
+                console.warn('Failed to clear localStorage:', e);
+            }
+
+            showToast('表单已清空');
+        }
+    </script>
+</body>
+</html>
