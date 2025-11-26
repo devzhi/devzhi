@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>运维日报生成器</title>
-    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb" crossorigin="anonymous"></script>
     <style>
         * {
             margin: 0;
@@ -628,27 +628,60 @@
             };
         }
 
-        // Set form data
+        // Set form data with validation
         function setFormData(data) {
-            if (data.form1) {
-                if (data.form1.date) document.getElementById('date1').value = data.form1.date;
-                if (data.form1.station) document.getElementById('station1').value = data.form1.station;
-                if (data.form1.manager) document.getElementById('manager1').value = data.form1.manager;
-                if (data.form1.ultraShortRate) document.getElementById('ultraShortRate').value = data.form1.ultraShortRate;
-                if (data.form1.shortRate) document.getElementById('shortRate').value = data.form1.shortRate;
-                if (data.form1.qualifyRate) document.getElementById('qualifyRate1').value = data.form1.qualifyRate;
-                if (data.form1.remarks) document.getElementById('remarks1').value = data.form1.remarks;
+            if (!data || typeof data !== 'object') {
+                return;
             }
-            if (data.form2) {
-                if (data.form2.date) document.getElementById('date2').value = data.form2.date;
-                if (data.form2.station) document.getElementById('station2').value = data.form2.station;
-                if (data.form2.manager) document.getElementById('manager2').value = data.form2.manager;
-                if (data.form2.curveMissing) document.getElementById('curveMissing').value = data.form2.curveMissing;
-                if (data.form2.dataMissing) document.getElementById('dataMissing').value = data.form2.dataMissing;
-                if (data.form2.noScan) document.getElementById('noScan').value = data.form2.noScan;
-                if (data.form2.dailyAvailability) document.getElementById('dailyAvailability').value = data.form2.dailyAvailability;
-                if (data.form2.qualifyRate) document.getElementById('qualifyRate2').value = data.form2.qualifyRate;
-                if (data.form2.remarks) document.getElementById('remarks2').value = data.form2.remarks;
+
+            // Form 1 field mappings
+            const form1Mappings = {
+                date: 'date1',
+                station: 'station1',
+                manager: 'manager1',
+                ultraShortRate: 'ultraShortRate',
+                shortRate: 'shortRate',
+                qualifyRate: 'qualifyRate1',
+                remarks: 'remarks1'
+            };
+
+            // Form 2 field mappings
+            const form2Mappings = {
+                date: 'date2',
+                station: 'station2',
+                manager: 'manager2',
+                curveMissing: 'curveMissing',
+                dataMissing: 'dataMissing',
+                noScan: 'noScan',
+                dailyAvailability: 'dailyAvailability',
+                qualifyRate: 'qualifyRate2',
+                remarks: 'remarks2'
+            };
+
+            // Helper function to safely set field value
+            function setFieldValue(fieldId, value) {
+                const element = document.getElementById(fieldId);
+                if (element && typeof value === 'string') {
+                    element.value = value;
+                }
+            }
+
+            // Set form 1 data
+            if (data.form1 && typeof data.form1 === 'object') {
+                Object.keys(form1Mappings).forEach(key => {
+                    if (data.form1[key] !== undefined) {
+                        setFieldValue(form1Mappings[key], data.form1[key]);
+                    }
+                });
+            }
+
+            // Set form 2 data
+            if (data.form2 && typeof data.form2 === 'object') {
+                Object.keys(form2Mappings).forEach(key => {
+                    if (data.form2[key] !== undefined) {
+                        setFieldValue(form2Mappings[key], data.form2[key]);
+                    }
+                });
             }
         }
 
@@ -659,6 +692,7 @@
                 localStorage.setItem('operationsReport', JSON.stringify(data));
             } catch (e) {
                 console.warn('Failed to save to localStorage:', e);
+                showToast('自动保存失败，请注意数据可能不会被保存');
             }
         }
 
@@ -800,7 +834,17 @@
                 showToast('截图已保存！');
             } catch (error) {
                 console.error('Screenshot failed:', error);
-                showToast('截图失败，请重试');
+                let errorMessage = '截图失败';
+                if (error.message) {
+                    if (error.message.includes('SecurityError') || error.message.includes('cross-origin')) {
+                        errorMessage = '截图失败：跨域安全限制';
+                    } else if (error.message.includes('canvas')) {
+                        errorMessage = '截图失败：画布渲染错误';
+                    } else {
+                        errorMessage = `截图失败：${error.message}`;
+                    }
+                }
+                showToast(errorMessage);
             } finally {
                 setLoading(false);
             }
